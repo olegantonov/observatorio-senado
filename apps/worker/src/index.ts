@@ -6,7 +6,7 @@ import { senador } from './routes/senador'
 import { ceap } from './routes/ceap'
 import { newsletter } from './routes/newsletter'
 import { computeRanking, persistRanking, getLatestRanking } from './services/ranking'
-import { getSenadorList, getRawDimensions } from './services/legis'
+import { getSenadorList, getRawDimensions, mesesAtivos } from './services/legis'
 import { getCeapLeg57, getAuxiliosMoradia } from './services/adm'
 import type { Env } from './types'
 
@@ -97,18 +97,35 @@ app.post('/admin/warmup', async (c) => {
     // Permite que /admin/recalculate funcione com poucos subrequests
     let ok = 0
     let fail = 0
+    let suspeitos = 0
     await Promise.all(
       results.map(async (r, idx) => {
-        if (r.status === 'fulfilled') {
-          await c.env.SENADO_CACHE.put(
-            `raw:v2:${slice[idx].codigo}`,
-            JSON.stringify(r.value),
-            { expirationTtl: 24 * 60 * 60 }, // 24h
-          )
-          ok += 1
-        } else {
+        if (r.status !== 'fulfilled') {
           fail += 1
+          return
         }
+        const sen = slice[idx]
+        const v = r.value
+        // Guarda anti cache-poisoning: senador veterano (>3 meses) sem
+        // NENHUM sinal em 4 dimensões independentes é quase certamente
+        // cascata de fetches falhos, não realidade.
+        const meses = mesesAtivos(sen.dataInicioExercicio ?? '2023-02-01')
+        const semSinal =
+          v.efetividadeBase === 0 &&
+          v.relatoriasTotal === 0 &&
+          v.discursosTotal === 0 &&
+          v.votacoesTotal <= 1
+        if (meses > 3 && semSinal) {
+          suspeitos += 1
+          fail += 1
+          return
+        }
+        await c.env.SENADO_CACHE.put(
+          `raw:v2:${sen.codigo}`,
+          JSON.stringify(v),
+          { expirationTtl: 24 * 60 * 60 }, // 24h
+        )
+        ok += 1
       }),
     )
 
@@ -118,6 +135,7 @@ app.post('/admin/warmup', async (c) => {
       processed: slice.length,
       ok,
       fail,
+      suspeitos,
       next_offset: offset + slice.length,
       total: senadores.length,
       done: offset + slice.length >= senadores.length,

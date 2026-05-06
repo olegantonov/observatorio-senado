@@ -42,16 +42,32 @@ async function cachedFetch(
   const cached = await env.SENADO_CACHE.get(cacheKey, 'json')
   if (cached !== null) return cached
 
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(30_000),
-  })
-  if (!res.ok) throw new Error(`LEGIS fetch failed: ${url} → ${res.status}`)
-  const data = await res.json()
-  await env.SENADO_CACHE.put(cacheKey, JSON.stringify(data), {
-    expirationTtl: CACHE_TTL_SECONDS,
-  })
-  return data
+  const RETRY_DELAYS_MS = [0, 500, 1500]
+  let lastErr: unknown = null
+  for (const delay of RETRY_DELAYS_MS) {
+    if (delay > 0) await new Promise((r) => setTimeout(r, delay))
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+        throw new Error(`LEGIS fetch failed: ${url} → ${res.status}`)
+      }
+      if (!res.ok) {
+        lastErr = new Error(`LEGIS fetch transient: ${url} → ${res.status}`)
+        continue
+      }
+      const data = await res.json()
+      await env.SENADO_CACHE.put(cacheKey, JSON.stringify(data), {
+        expirationTtl: CACHE_TTL_SECONDS,
+      })
+      return data
+    } catch (err) {
+      lastErr = err
+    }
+  }
+  throw lastErr ?? new Error(`LEGIS fetch failed: ${url}`)
 }
 
 /**
@@ -268,29 +284,27 @@ export async function getRawDimensions(
   let efetividadePonderada = 0 // soma de status × peso_tipo
   let efetividadeBase = 0 // soma de peso_tipo (denominador)
 
-  try {
-    const processos = await cachedFetch(
-      env,
-      `legis:${codigo}:processos:leg57`,
-      `${base}/processo?codigoParlamentarAutor=${codigo}&tramitouLegislaturaAtual=S`,
-    )
-    if (Array.isArray(processos)) {
-      autoriasTotal = processos.length
-      for (const p of processos as Record<string, unknown>[]) {
-        const sigla = extrairSigla(p)
-        const peso = PESO_PROPOSICAO[sigla] ?? 0.5
-        produtividadePonderada += peso
+  // /processo é load-bearing: falha aqui propaga e warmup classifica como
+  // rejected, evitando cache poisoning com autoriasTotal=0.
+  const processos = await cachedFetch(
+    env,
+    `legis:${codigo}:processos:leg57`,
+    `${base}/processo?codigoParlamentarAutor=${codigo}&tramitouLegislaturaAtual=S`,
+  )
+  if (Array.isArray(processos)) {
+    autoriasTotal = processos.length
+    for (const p of processos as Record<string, unknown>[]) {
+      const sigla = extrairSigla(p)
+      const peso = PESO_PROPOSICAO[sigla] ?? 0.5
+      produtividadePonderada += peso
 
-        const statusPeso = classificarStatus(p)
-        if (statusPeso > 0) {
-          efetividadePonderada += statusPeso * peso
-          if (statusPeso >= PESO_STATUS.APROVADO_SF) autoriasAprovadas += 1
-        }
-        efetividadeBase += peso
+      const statusPeso = classificarStatus(p)
+      if (statusPeso > 0) {
+        efetividadePonderada += statusPeso * peso
+        if (statusPeso >= PESO_STATUS.APROVADO_SF) autoriasAprovadas += 1
       }
+      efetividadeBase += peso
     }
-  } catch (err) {
-    console.error(`[autorias] erro p/ ${codigo}:`, err)
   }
 
   // ----- Relatorias (Leg 57) -----
