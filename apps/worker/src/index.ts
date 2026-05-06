@@ -150,7 +150,7 @@ app.post('/admin/warmup', async (c) => {
         await c.env.SENADO_CACHE.put(
           `raw:v2:${sen.codigo}`,
           JSON.stringify(v),
-          { expirationTtl: 24 * 60 * 60 }, // 24h
+          { expirationTtl: 8 * 24 * 60 * 60 }, // 8 dias > 1 semana
         )
         ok += 1
       }),

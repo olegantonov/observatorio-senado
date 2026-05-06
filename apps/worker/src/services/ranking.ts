@@ -118,10 +118,21 @@ export async function computeRanking(env: Env): Promise<IdsScore[]> {
       )
       for (let j = 0; j < slice.length; j++) {
         const r = results[j]
-        rawMap[slice[j]] =
-          r.status === 'fulfilled'
-            ? { ...r.value, ceapTotalAno: ceapLeg57[slice[j]] ?? 0 }
-            : emptyRaw(ceapLeg57[slice[j]] ?? 0)
+        if (r.status === 'fulfilled') {
+          rawMap[slice[j]] = {
+            ...r.value,
+            ceapTotalAno: ceapLeg57[slice[j]] ?? 0,
+          }
+          // Persiste no KV p/ próximas execuções (cron semanal não precisa
+          // refazer fetch toda vez)
+          await env.SENADO_CACHE.put(
+            `raw:v2:${slice[j]}`,
+            JSON.stringify(r.value),
+            { expirationTtl: 8 * 24 * 60 * 60 }, // 8 dias > 1 semana
+          )
+        } else {
+          rawMap[slice[j]] = emptyRaw(ceapLeg57[slice[j]] ?? 0)
+        }
       }
     }
   }
