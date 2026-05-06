@@ -244,11 +244,11 @@ export default {
     return app.fetch(request, env, ctx)
   },
 
-  // Cron: roda 1x por dia à meia-noite UTC
+  // Cron: roda 1x por semana, domingos às 03:00 UTC
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
       (async () => {
-        console.log('[cron] Iniciando recálculo diário do ranking IDS...')
+        console.log('[cron] Iniciando recálculo semanal do ranking IDS...')
         try {
           const scores = await computeRanking(env)
           await persistRanking(env, scores)
