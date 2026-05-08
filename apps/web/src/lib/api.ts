@@ -5,6 +5,15 @@ import type {
   CeapResponse,
   AfastadosResponse,
   FilterPreset,
+  ListResultBase,
+  AutoriaItem,
+  RelatoriaItem,
+  VotacaoItem,
+  ComissaoItem,
+  CargoItem,
+  DiscursoItem,
+  DespesasResponse,
+  PerfilSenador,
 } from './types'
 
 const API_URL =
@@ -60,4 +69,66 @@ export async function getCeap(
 ): Promise<CeapResponse> {
   const q = ano ? `?ano=${ano}` : ''
   return apiFetch<CeapResponse>(`/api/ceap/${codigo}${q}`)
+}
+
+interface PageOpts {
+  pagina?: number
+  porPagina?: number
+  ano?: number
+}
+
+function pageQs(opts?: PageOpts): string {
+  const qs = new URLSearchParams()
+  if (opts?.pagina) qs.set('pagina', String(opts.pagina))
+  if (opts?.porPagina) qs.set('porPagina', String(opts.porPagina))
+  if (opts?.ano) qs.set('ano', String(opts.ano))
+  return qs.toString() ? `?${qs}` : ''
+}
+
+export async function getPerfil(codigo: string): Promise<PerfilSenador> {
+  return apiFetch<PerfilSenador>(`/api/senador/${codigo}/perfil`)
+}
+
+export async function getAutorias(codigo: string, opts?: PageOpts): Promise<ListResultBase<AutoriaItem>> {
+  return apiFetch<ListResultBase<AutoriaItem>>(`/api/senador/${codigo}/autorias${pageQs(opts)}`)
+}
+
+export async function getRelatorias(codigo: string, opts?: PageOpts): Promise<ListResultBase<RelatoriaItem>> {
+  return apiFetch<ListResultBase<RelatoriaItem>>(`/api/senador/${codigo}/relatorias${pageQs(opts)}`)
+}
+
+export async function getVotacoes(codigo: string, opts?: PageOpts): Promise<ListResultBase<VotacaoItem>> {
+  return apiFetch<ListResultBase<VotacaoItem>>(`/api/senador/${codigo}/votacoes${pageQs(opts)}`)
+}
+
+export async function getComissoes(codigo: string, ativo?: boolean): Promise<ListResultBase<ComissaoItem>> {
+  const q = ativo === undefined ? '' : `?ativo=${ativo}`
+  return apiFetch<ListResultBase<ComissaoItem>>(`/api/senador/${codigo}/comissoes${q}`)
+}
+
+export async function getCargos(codigo: string, ativo?: boolean): Promise<ListResultBase<CargoItem>> {
+  const q = ativo === undefined ? '' : `?ativo=${ativo}`
+  return apiFetch<ListResultBase<CargoItem>>(`/api/senador/${codigo}/cargos${q}`)
+}
+
+export async function getDiscursos(codigo: string, opts?: PageOpts): Promise<ListResultBase<DiscursoItem>> {
+  return apiFetch<ListResultBase<DiscursoItem>>(`/api/senador/${codigo}/discursos${pageQs(opts)}`)
+}
+
+export async function getApartes(codigo: string, opts?: PageOpts): Promise<ListResultBase<DiscursoItem>> {
+  return apiFetch<ListResultBase<DiscursoItem>>(`/api/senador/${codigo}/apartes${pageQs(opts)}`)
+}
+
+export async function getDespesasDetalhadas(
+  codigo: string,
+  opts?: PageOpts & { tipo?: string; fornecedor?: string },
+): Promise<DespesasResponse> {
+  const qs = new URLSearchParams()
+  if (opts?.pagina) qs.set('pagina', String(opts.pagina))
+  if (opts?.porPagina) qs.set('porPagina', String(opts.porPagina))
+  if (opts?.ano) qs.set('ano', String(opts.ano))
+  if (opts?.tipo) qs.set('tipo', opts.tipo)
+  if (opts?.fornecedor) qs.set('fornecedor', opts.fornecedor)
+  const q = qs.toString() ? `?${qs}` : ''
+  return apiFetch<DespesasResponse>(`/api/senador/${codigo}/despesas${q}`)
 }

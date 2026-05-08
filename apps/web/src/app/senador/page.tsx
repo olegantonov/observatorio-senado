@@ -1,12 +1,20 @@
 'use client'
 
 import { useEffect, useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { getSenador, getCeap } from '@/lib/api'
-import type { IdsScore, CeapResponse } from '@/lib/types'
+import type { IdsScore, CeapResponse, AbaSenador } from '@/lib/types'
 import SenadorRadar from '@/components/SenadorRadar'
 import CeapBarChart from '@/components/CeapBarChart'
+import AbasMenu from '@/components/senador/AbasMenu'
+import AbaAutorias from '@/components/senador/AbaAutorias'
+import AbaRelatorias from '@/components/senador/AbaRelatorias'
+import AbaVotacoes from '@/components/senador/AbaVotacoes'
+import { AbaComissoes, AbaCargos } from '@/components/senador/AbaComissoesECargos'
+import { AbaDiscursos, AbaApartes } from '@/components/senador/AbaDiscursos'
+import AbaDespesas from '@/components/senador/AbaDespesas'
+import AbaPerfil from '@/components/senador/AbaPerfil'
 
 function idsClass(v: number) {
   if (v >= 75) return 'text-[#14532d]'
@@ -71,12 +79,21 @@ const CEAP_ANOS = [2023, 2024, 2025, 2026]
 
 function SenadorContent() {
   const params = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const codigo = params.get('codigo') ?? ''
+  const aba = (params.get('aba') ?? 'resumo') as AbaSenador
   const [data, setData] = useState<IdsScore | null>(null)
   const [ceapPorAno, setCeapPorAno] = useState<Record<number, CeapResponse['meses']>>({})
   const [ceapAno, setCeapAno] = useState(new Date().getFullYear())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  function setAba(a: AbaSenador) {
+    const qs = new URLSearchParams(params.toString())
+    qs.set('aba', a)
+    router.replace(`${pathname}?${qs.toString()}`, { scroll: false })
+  }
 
   useEffect(() => {
     if (!codigo) {
@@ -200,6 +217,20 @@ function SenadorContent() {
         </div>
       </header>
 
+      {/* ============= ABAS ============= */}
+      <AbasMenu active={aba} onChange={setAba} />
+
+      {aba === 'autorias' && <AbaAutorias codigo={codigo} />}
+      {aba === 'relatorias' && <AbaRelatorias codigo={codigo} />}
+      {aba === 'votacoes' && <AbaVotacoes codigo={codigo} />}
+      {aba === 'comissoes' && <AbaComissoes codigo={codigo} />}
+      {aba === 'cargos' && <AbaCargos codigo={codigo} />}
+      {aba === 'discursos' && <AbaDiscursos codigo={codigo} />}
+      {aba === 'apartes' && <AbaApartes codigo={codigo} />}
+      {aba === 'despesas' && <AbaDespesas codigo={codigo} />}
+      {aba === 'perfil' && <AbaPerfil codigo={codigo} />}
+
+      {aba === 'resumo' && (<>
       {/* ============= INDICADORES BRUTOS ============= */}
       <section>
         <p className="eyebrow">Indicadores Brutos · 57ª Legislatura</p>
@@ -408,6 +439,7 @@ function SenadorContent() {
           </div>
         </section>
       )}
+      </>)}
     </div>
   )
 }
