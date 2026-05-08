@@ -10,7 +10,7 @@ import { getSenadorList, getRawDimensions, mesesAtivos } from './services/legis'
 import { getCeapLeg57, getAuxiliosMoradia } from './services/adm'
 import type { Env } from './types'
 
-const app = new Hono<{ Bindings: Env }>()
+export const app = new Hono<{ Bindings: Env }>()
 
 app.use('*', logger())
 app.use(

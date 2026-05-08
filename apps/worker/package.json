@@ -6,13 +6,21 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "build": "tsc",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "node:server": "tsx src/runtime/node/server.ts",
+    "node:cron": "tsx src/runtime/node/cron.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "better-sqlite3": "^11.5.0",
+    "dotenv": "^16.4.5",
     "hono": "^4.5.9"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241022.0",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.16.10",
+    "tsx": "^4.19.2",
     "typescript": "^5.4.5",
     "wrangler": "^3.80.0"
   }
