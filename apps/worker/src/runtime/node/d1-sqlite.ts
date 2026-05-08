@@ -7,16 +7,14 @@ interface D1Result<T = Record<string, unknown>> {
 }
 
 class SqlitePrepared {
-  private params: unknown[] = []
-
   constructor(
     private readonly db: Database,
     private readonly sql: string,
+    private readonly params: readonly unknown[] = [],
   ) {}
 
   bind(...params: unknown[]): SqlitePrepared {
-    this.params = params
-    return this
+    return new SqlitePrepared(this.db, this.sql, params)
   }
 
   private statement(): Statement {
